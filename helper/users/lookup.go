@@ -9,11 +9,30 @@ import (
 	"os"
 	"os/user"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-multierror"
 )
+
+// IsLookupUnsupported reports whether err indicates that the platform has no
+// user database at all, rather than that a specific user is missing.
+//
+// Android is the main example: /etc/passwd does not exist, uids are defined by
+// bionic's AID tables, and Go's os/user package is a stub that returns
+// "Lookup not implemented on android" for every name. Callers that treat a
+// lookup failure as fatal (for example chowning a directory to "nobody") must
+// distinguish this case, because on such a platform no username can ever
+// resolve and hard-failing would make the agent unusable.
+func IsLookupUnsupported(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "not implemented on android") ||
+		strings.Contains(msg, "not implemented")
+}
 
 var globalCache = newCache()
 
