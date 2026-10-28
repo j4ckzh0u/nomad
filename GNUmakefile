@@ -110,6 +110,11 @@ endif
 pkg/windows_%/nomad: GO_OUT = $@.exe
 pkg/windows_%/nomad: GO_TAGS += timetzdata
 
+pkg/android_%/nomad: GO_OUT = $@.so
+pkg/android_%/nomad: CGO_ENABLED = 0
+pkg/android_%/nomad: GO_TAGS := timetzdata
+
+
 # Define package targets for each of the build targets we actually have on this system
 define makePackageTarget
 

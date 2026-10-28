@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"os/user"
 	"strconv"
+
+	"github.com/hashicorp/nomad/helper/users"
 )
 
 func getUserID(user *user.User) (UserID, error) {
@@ -23,7 +25,14 @@ func getUserID(user *user.User) (UserID, error) {
 func getGroupsID(user *user.User) ([]GroupID, error) {
 	gidStrings, err := user.GroupIds()
 	if err != nil {
-		return []GroupID{}, fmt.Errorf("unable to lookup user's group membership: %w", err)
+		// Platforms without a user database (Android) cannot enumerate group
+		// membership. Fall back to the user's primary gid so that deny-list
+		// checks still work for the id we can see.
+		if users.IsLookupUnsupported(err) && user.Gid != "" {
+			gidStrings = []string{user.Gid}
+		} else {
+			return []GroupID{}, fmt.Errorf("unable to lookup user's group membership: %w", err)
+		}
 	}
 
 	gids := make([]GroupID, len(gidStrings))
