@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/go-set/v3"
+	"github.com/hashicorp/nomad/helper/users"
 	"github.com/hashicorp/nomad/helper/users/dynamic"
 	"github.com/hashicorp/nomad/plugins/drivers/fsisolation"
 )
@@ -181,9 +182,16 @@ func (t *TaskDir) Build(fsi fsisolation.Mode, chroot map[string]string, username
 			return fmt.Errorf("Failed to lookup user: %v", err)
 		}
 
+		// The alloc dir is bind mounted with owner nobody so that tasks
+		// running as arbitrary users can write to it. Platforms without a
+		// user database (Android) cannot resolve that name; fall back to the
+		// agent's own ids rather than failing the allocation.
 		nobodyUID, nobodyGID, _, err := dynamic.LookupUser("nobody")
 		if err != nil {
-			return fmt.Errorf("Failed to lookup nobody user: %v", err)
+			if !users.IsLookupUnsupported(err) {
+				return fmt.Errorf("Failed to lookup nobody user: %v", err)
+			}
+			nobodyUID, nobodyGID = uid, gid
 		}
 
 		// create the task unique directory under the client mounts path

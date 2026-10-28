@@ -33,6 +33,13 @@ var (
 
 // dropDirPermissions gives full access to a directory to all users and sets
 // the owner to nobody.
+//
+// Platforms such as Android have no user database: /etc/passwd does not exist
+// and uids come from bionic's AID tables, so os/user returns "not implemented
+// on android" for every name. In that case we cannot chown to "nobody", but we
+// must not fail the allocation either; doing so would prevent any task from
+// ever starting. The directory has already been widened to 0777 above, so
+// leaving it owned by the agent user does not change the effective isolation.
 func dropDirPermissions(path string, desired os.FileMode) error {
 	// Refuse to operate on symlinks to prevent modifying permissions on an
 	// arbitrary host directory after allocdir migration
@@ -55,6 +62,11 @@ func dropDirPermissions(path string, desired os.FileMode) error {
 
 	u, err := users.Lookup("nobody")
 	if err != nil {
+		if users.IsLookupUnsupported(err) {
+			// No user database on this platform; keep the directory owned by
+			// the agent and carry on.
+			return nil
+		}
 		return fmt.Errorf("Unable to find nobody user: %w", err)
 	}
 
