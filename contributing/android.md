@@ -71,6 +71,13 @@ repeated connection errors in the logs.
 The existing `register.go` (`!cgo`) and `register_cgo.go` (`cgo`) gained a
 `&& !android` constraint so exactly one catalog is compiled.
 
+### `client/allocdir/stale_linux.go`
+
+Adds `unmountStaleSecretDirs`, called once per agent process from
+`AllocDir.Build`. It unmounts and recreates any `secrets/` and `private/`
+tmpfs left over from a previous process that did not shut down cleanly, so
+repeated hard restarts do not accumulate leaked mounts.
+
 ### `GNUmakefile`
 
 Added `pkg/android_%/nomad`, producing `pkg/android_arm64/nomad.so`. The `.so`
@@ -192,9 +199,11 @@ SELinux permissive, running as root:
  the job spec are not enforced.
 - **No CSI, no Consul Connect, no Vault** in the tested configuration. These
  depend on infrastructure that is not present on a bare device.
-- **Unclean shutdown leaves tmpfs mounts.** If the agent is killed with
- `SIGKILL`, the `secrets/` and `private/` tmpfs mounts inside alloc
- directories stay behind and must be unmounted manually. Use `SIGTERM` and
- let the client drain.
+- **Unclean shutdown leaves tmpfs mounts until the next allocation.** If the
+ agent is killed with `SIGKILL`, the `secrets/` and `private/` tmpfs mounts
+ inside alloc directories stay behind. The agent sweeps and unmounts them once
+ per process before the first allocation is built, so they are reclaimed as
+ soon as scheduling resumes, but they do survive until then. Prefer `SIGTERM`
+ and let the client drain.
 - **`codegen_generated` tag** does not build in this repository state; the
  Android make target therefore overrides `GO_TAGS` instead of appending.
