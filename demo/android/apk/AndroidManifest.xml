@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+ package="com.hashicorp.nomadandroid"
+ android:versionCode="1"
+ android:versionName="1.0">
+
+ <uses-sdk android:minSdkVersion="27" android:targetSdkVersion="27" />
+
+ <!-- nomad needs to bind its HTTP and RPC ports. -->
+ <uses-permission android:name="android.permission.INTERNET" />
+
+ <!--
+ extractNativeLibs=false keeps lib/<abi>/libnomad.so uncompressed and
+ mapped in place, which is required for the agent to be able to re-execute
+ itself for task helpers.
+ -->
+ <application
+ android:label="Nomad"
+ android:extractNativeLibs="false"
+ android:allowBackup="false"
+ android:debuggable="true">
+
+ <activity
+ android:name=".StartActivity"
+ android:exported="true">
+ <intent-filter>
+ <action android:name="android.intent.action.MAIN" />
+ <category android:name="android.intent.category.LAUNCHER" />
+ </intent-filter>
+ </activity>
+
+ <service
+ android:name=".NomadService"
+ android:exported="true" />
+ </application>
+</manifest>
