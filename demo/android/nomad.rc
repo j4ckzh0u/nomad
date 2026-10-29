@@ -24,11 +24,13 @@ service nomad /system/bin/nomad agent -config=/data/local/nomad/android.hcl
  class late_start
  user root
  group root system
- # Raw_exec needs to see and signal arbitrary processes.
+ # raw_exec launches arbitrary binaries, so the agent needs a permissive
+ # domain. su is the only one available on most userdebug builds; drop this
+ # line if your device handles it differently.
  seclabel u:r:su:s0
- # Restart the agent if it exits, but back off so a bad config does not
- # spin.
- oneshot disabled
+
+ # Not oneshot: a normal service is restarted by init when it exits, which is
+ # what a supervisor should do. init applies its own backoff.
 
 on property:sys.boot_completed=1
  start nomad
