@@ -388,16 +388,14 @@ func (a *AllocDir) UnmountAll() error {
 	return mErr.ErrorOrNil()
 }
 
-// staleCleanupOnce guards unmountStaleSecretDirs so the sweep happens once per
-// agent process rather than on every allocation.
-var staleCleanupOnce sync.Once
-
 // Build the directory tree for an allocation.
 func (a *AllocDir) Build() error {
-	// Clean up tmpfs mounts leaked under allocDir by an unclean shutdown of a
-	// previous agent. This runs once per process, before the first alloc dir
-	// is built, so it never races with an allocation that is in use.
-	staleCleanupOnce.Do(func() { unmountStaleSecretDirs(a.AllocDir) })
+	// Sweep tmpfs mounts leaked by earlier allocations that were never
+	// destroyed (an agent killed with SIGKILL, or a process that died before
+	// its destroy hook ran). The alloc being built is in the keep set, so a
+	// live allocation is never touched; anything else under the alloc dir is
+	// by definition not in use by this agent.
+	unmountStaleSecretDirs(filepath.Dir(a.AllocDir), map[string]bool{filepath.Base(a.AllocDir): true})
 
 	// Make the alloc directory, owned by the nomad process.
 	if err := os.MkdirAll(a.AllocDir, fileMode755); err != nil {

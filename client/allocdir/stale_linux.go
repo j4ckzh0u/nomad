@@ -15,7 +15,8 @@ import (
 var staleSecretDirNames = []string{TaskSecrets, TaskPrivate}
 
 // unmountStaleSecretDirs unmounts tmpfs mounts left behind under allocDir by a
-// previous agent process that did not shut down cleanly.
+// previous agent process that did not shut down cleanly, skipping the allocs
+// named in keep so a live allocation is never disturbed.
 //
 // Normally AllocDir.Destroy unmounts these, but a SIGKILL (or a power loss)
 // skips it and the kernel keeps the mounts until reboot. A later agent process
@@ -30,15 +31,17 @@ var staleSecretDirNames = []string{TaskSecrets, TaskPrivate}
 //	<allocDir>/<allocID>/<taskGroup>.<task>/private
 //
 // Errors are ignored: a directory that is not a mount point is not a problem,
-// and failing to clean one must never prevent the agent from starting.
-func unmountStaleSecretDirs(allocDir string) {
+// and failing to clean one must never prevent the agent from starting. A mount
+// that is still busy is left in place, which happens when an allocation is
+// being torn down concurrently.
+func unmountStaleSecretDirs(allocDir string, keep map[string]bool) {
 	allocEntries, err := os.ReadDir(allocDir)
 	if err != nil {
 		return
 	}
 
 	for _, allocEntry := range allocEntries {
-		if !allocEntry.IsDir() {
+		if !allocEntry.IsDir() || keep[allocEntry.Name()] {
 			continue
 		}
 		allocPath := filepath.Join(allocDir, allocEntry.Name())
