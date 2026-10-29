@@ -61,6 +61,14 @@ type Config struct {
 	// PluginDir is the directory to lookup plugins.
 	PluginDir string `hcl:"plugin_dir"`
 
+	// ExecutablePath overrides the path Nomad uses to re-execute its own
+	// binary for the task executor, logmon, and the template/artifact
+	// subprocesses. Leave empty to use the running image.
+	//
+	// This is required on platforms where the running image cannot be
+	// executed, most notably Android. See contributing/android.md.
+	ExecutablePath string `hcl:"executable_path"`
+
 	// LogLevel is the level of the logs to put out
 	LogLevel string `hcl:"log_level"`
 
@@ -1962,6 +1970,9 @@ func (c *Config) Merge(b *Config) *Config {
 	}
 	if b.PluginDir != "" {
 		result.PluginDir = b.PluginDir
+	}
+	if b.ExecutablePath != "" {
+		result.ExecutablePath = b.ExecutablePath
 	}
 	if b.LogLevel != "" {
 		result.LogLevel = b.LogLevel
