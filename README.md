@@ -9,6 +9,11 @@ Nomad
   </a>
 </p>
 
+> **This fork adds an Android target.** The client runs on Android devices and
+> supervises plain binaries with `raw_exec`, without Docker. Install guides for
+> Linux, macOS, Windows and Android, plus troubleshooting, are in [docs/](docs/README.md).
+>中文文档见 [README.zh-CN.md](README.zh-CN.md)与 [docs/zh-CN/](docs/zh-CN/README.md)。
+
 Nomad is a simple and flexible workload orchestrator to deploy and manage containers ([docker](https://developer.hashicorp.com/nomad/docs/deploy/task-driver/docker), [podman](https://developer.hashicorp.com/nomad/plugins/drivers/podman)), non-containerized applications ([executable](https://developer.hashicorp.com/nomad/docs/deploy/task-driver/exec), [Java](https://developer.hashicorp.com/nomad/docs/deploy/task-driver/java)), and virtual machines ([qemu](https://developer.hashicorp.com/nomad/docs/deploy/task-driver/qemu)) across on-prem and clouds at scale.
 
 Nomad is supported on Linux, Windows, and macOS. A commercial version of Nomad, [Nomad Enterprise](https://developer.hashicorp.com/nomad/docs/enterprise), is also available.
