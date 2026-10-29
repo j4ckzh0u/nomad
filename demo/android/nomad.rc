@@ -20,23 +20,28 @@
 # - `oneshot` is deliberately NOT set: with a normal service init restarts the
 # agent if it dies, which is what you want for a supervisor.
 
+# Create the state directories before anything starts. init evaluates these in
+# file order, so this block is placed ahead of the service and the trigger.
+on init
+ mkdir /data/local/nomad 777 root root
+ mkdir /data/local/services 777 root root
+
 service nomad /system/bin/nomad agent -config=/data/local/nomad/android.hcl
  class late_start
  user root
  group root system
- # raw_exec launches arbitrary binaries, so the agent needs a permissive
- # domain. su is the only one available on most userdebug builds; drop this
- # line if your device handles it differently.
+
+ # A service under /system/etc/init must name its SELinux domain explicitly;
+ # without this init logs "service nomad does not have a SELinux domain
+ # defined" and never starts it. su is the only permissive domain available on
+ # a userdebug build. raw_exec launches arbitrary binaries, so a locked-down
+ # device needs a purpose-built domain and sepolicy instead.
  seclabel u:r:su:s0
 
  # Not oneshot: a normal service is restarted by init when it exits, which is
  # what a supervisor should do. init applies its own backoff.
 
+# late_start services only run once the rest of the system is up, so wait for
+# boot to complete rather than racing it.
 on property:sys.boot_completed=1
  start nomad
-
-# Nomad keeps its Raft/memdb state and alloc dirs under data_dir. Ensure the
-# directory exists with the right ownership before the agent starts.
-on init
- mkdir /data/local/nomad 0755 root root
- mkdir /data/local/services 0755 root root
