@@ -1,0 +1,153 @@
+name: android-release
+
+# Builds Nomad for Linux, macOS, Windows and Android, and attaches the
+# archives to a GitHub Release.
+#
+# Separate from build.yml, which is wired to HashiCorp's internal CRT
+# pipeline and its secrets, none of which exist in a fork.
+#
+# Two build-time quirks this works around:
+#
+# - The web UI is not embedded: that needs the Ember toolchain, and it is
+# not useful for the Android work this fork exists for.
+# - codegen_generated is never set. nomad/structs/structs.generated.go is
+# guarded by that tag and imports github.com/hashicorp/go-set, which is
+# absent from go.mod (only go-set/v3 is present), so the build fails to
+# resolve. GO_TAGS is overridden per target instead of appended to.
+#
+# android/amd64 needs cgo plus an NDK: the Go toolchain refuses to build
+# that target without external linking.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish, without the v prefix'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  GO_VERSION: '1.27.3'
+  NDK_VERSION: '27.3.13750724'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux_amd64
+            tags: release
+          - target: linux_arm64
+            tags: release
+          - target: darwin_amd64
+            tags: release
+          - target: darwin_arm64
+            tags: release
+          - target: windows_amd64
+            tags: release timetzdata
+            ext: .exe
+          - target: android_arm64
+            tags: timetzdata
+            ext: .so
+          - target: android_amd64
+            tags: timetzdata
+            ext: .so
+            api: "31"
+            cgo: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Install NDK
+        if: matrix.cgo
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: ${{ env.NDK_VERSION }}
+      - name: Build
+        env:
+          NOMAD_NO_UI: '1'
+          GO_TAGS: ${{ matrix.tags }}
+          TARGET: ${{ matrix.target }}
+          CGO: ${{ matrix.cgo && '1' || '0' }}
+          API: ${{ matrix.api }}
+        run: |
+          set -euo pipefail
+          goos="${TARGET%_*}"
+          goarch="${TARGET#*_}"
+          
+          # android/amd64 needs the NDK clang wrapper, selected by name. The
+          # API level only constrains which libc symbols may be referenced.
+          if [ "$CGO" = "1" ]; then
+            api="${API:-31}"
+            case "$goarch" in
+              amd64) triple="x86_64-linux-android${api}" ;;
+              *) triple="aarch64-linux-android${api}" ;;
+            esac
+            cc="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/${triple}-clang"
+            echo "CC=$cc" >> "$GITHUB_ENV"
+          fi
+          
+          out="nomad_${TARGET}"
+          CGO_ENABLED="$CGO" GOOS="$goos" GOARCH="$goarch" \
+            go build -trimpath \
+            -tags "$GO_TAGS" \
+            -ldflags "-s -w" \
+            -o "$out" .
+          
+          if [ -n "${{ matrix.ext }}" ]; then
+            mv "$out" "${out}${{ matrix.ext }}"
+            out="${out}${{ matrix.ext }}"
+          fi
+          
+          echo "ARTIFACT=$out" >> "$GITHUB_ENV"
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: ${{ env.ARTIFACT }}
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Package
+        env:
+          VERSION: ${{ github.event.inputs.version || github.ref_name }}
+        run: |
+          set -euo pipefail
+          version="${VERSION#v}"
+          cd dist
+          for f in nomad_*; do
+            case "$f" in
+              *.exe|*.so)
+                chmod +x "$f" ;;
+              *)
+                # Linux and macOS are shipped as zips, matching upstream naming.
+                zip -q "nomad_${version}_${f#nomad_}.zip" "$f"
+                rm "$f" ;;
+            esac
+          done
+          ls -lh
+      - name: Publish
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || format('v{0}', github.event.inputs.version) }}
+          files: dist/*
+          generate_release_notes: true
+          fail_on_unmatched_files: true
