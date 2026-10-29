@@ -107,7 +107,7 @@ a few locations:
 | `lib/<abi>/` inside an APK | yes | with `android:extractNativeLibs="false"` |
 | `/data/local/tmp/` | only when SELinux is permissive or the device is rooted | |
 
-Android10 and later block `exec` from app-private storage under `/data` at the
+Android 10 and later block `exec` from app-private storage under `/data` at the
 SELinux level for ordinary apps. On the test device (Android 8.1, `userdebug`,
 SELinux permissive, `adb shell` running as root) `/data/local/tmp` worked, but
 do not rely on that for production.
@@ -115,6 +115,32 @@ do not rely on that for production.
 Because Nomad re-executes its own binary to start the per-task `executor` and
 `logmon` helpers, the binary must stay executable for the lifetime of the
 agent, not just at startup.
+
+### Telling Nomad where its binary is
+
+When the running image is not executable, for example because the agent was
+launched from `lib/<abi>/libnomad.so` inside an APK, the helpers need an
+explicit path. `helper/subproc` resolves it in this order:
+
+1. `executable_path` in the agent config.
+2. `$NOMAD_EXECUTABLE`.
+3. `os.Executable()`.
+4. Android only, when the running image is not executable:
+ `$NOMAD_ANDROID_LIB_DIR/libnomad.so`, `/system/bin/nomad`,
+ `/system/xbin/nomad`, `/data/local/tmp/nomad`.
+
+Candidates are checked for existence and an execute bit before use, so a bad
+configuration fails immediately with a clear error rather than an obscure
+`exec` failure on the first job. The agent logs a warning when the helper
+binary differs from the running image.
+
+```hcl
+executable_path = "/data/local/nomad/nomad"
+```
+
+See `demo/android/DEPLOYMENT.md` for the three deployment shapes (rooted
+board, enforcing device without root, and multi-process with rolling
+updates).
 
 ### Configuration
 
