@@ -111,7 +111,14 @@ pkg/windows_%/nomad: GO_OUT = $@.exe
 pkg/windows_%/nomad: GO_TAGS += timetzdata
 
 pkg/android_%/nomad: GO_OUT = $@.so
-pkg/android_%/nomad: CGO_ENABLED = 0
+# arm64 and arm build as pure Go. amd64 and386 require cgo: the Go toolchain
+# insists on external linking for those Android targets, and the result must
+# link against bionic. Set CC to an NDK wrapper when building them, e.g.
+# make pkg/android_amd64/nomad \
+# CC=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/<host>/bin/x86_64-linux-android31-clang
+pkg/android_arm%/nomad: CGO_ENABLED = 0
+pkg/android_amd64/nomad: CGO_ENABLED = 1
+pkg/android_386/nomad: CGO_ENABLED = 1
 pkg/android_%/nomad: GO_TAGS := timetzdata
 
 

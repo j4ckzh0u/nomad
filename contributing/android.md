@@ -78,6 +78,16 @@ Adds `unmountStaleSecretDirs`, called once per agent process from
 tmpfs left over from a previous process that did not shut down cleanly, so
 repeated hard restarts do not accumulate leaked mounts.
 
+### `client/lib/cgroupslib/mount.go`
+
+`scan` returns on the first `/sys/fs/cgroup` entry it sees, which is wrong
+when several filesystems are mounted at that path. Android containers do
+exactly that: an outer tmpfs, a cgroup2 bind mount over it, and cgroup v1
+controllers mounted beneath. The old code reported cgroups v1, took the v1
+initialization path, failed to read the shadowed `cpuset.mems`, and the
+client refused to start. It now scans the whole file and uses the last entry
+for the path, which is the one actually visible.
+
 ### `GNUmakefile`
 
 Added `pkg/android_%/nomad`, producing `pkg/android_arm64/nomad.so`. The `.so`
@@ -86,13 +96,34 @@ directory are executable, and that is where such a file must be placed.
 
 ## Building
 
+### arm64 / arm
+
+Pure Go, no toolchain beyond `go` itself:
+
 ```bash
 NOMAD_NO_UI=1 make pkg/android_arm64/nomad
 ```
 
+The `exec` driver is not present, because it needs cgo and libcontainer
+isolation. `raw_exec` is the driver to use.
+
+### amd64 /386
+
+The Go toolchain refuses to build these Android targets without cgo
+("android/amd64 requires external (cgo) linking"), because the binary has to
+link against bionic rather than glibc. An NDK is therefore required:
+
+```bash
+NDK=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/<host>
+NOMAD_NO_UI=1 make pkg/android_amd64/nomad \
+ CC=$NDK/bin/x86_64-linux-android31-clang
+```
+
+Use the API level that matches your device (`31` for Android12). The cgo
+build pulls in runc/libcontainer, so the `exec` driver becomes available too,
+though `raw_exec` remains the sensible choice on a device.
+
 `NOMAD_NO_UI=1` skips embedding the web UI, which needs the Ember toolchain.
-`CGO_ENABLED` is forced to 0; the `exec` driver is not built because it
-requires cgo and libcontainer-based chroot isolation.
 
 ## Running
 
@@ -202,8 +233,10 @@ job "android-svc" {
 
 ## Verified behaviour
 
-Tested on an RK3399 board, Android 8.1 (API 27), arm64, kernel 4.4.167,
-SELinux permissive, running as root:
+### arm64 board
+
+An RK3399 board, Android8.1 (API27), arm64, kernel4.4.167, SELinux
+permissive, running as root:
 
 - `nomad agent` starts, elects itself leader, registers the node.
 - `raw_exec` fingerprints as healthy; `docker` is absent from the driver list.
@@ -212,6 +245,24 @@ SELinux permissive, running as root:
 - The process tree is `nomad (agent) -> nomad (executor) -> service`, so the
  executor re-exec works on this platform.
 - `nomad job stop` terminates both the executor and the service process.
+
+### x86_64 container
+
+A redroid Android12 image (API31), x86_64, kernel5.15, SELinux disabled,
+running as root:
+
+- The cgo build from `make pkg/android_amd64/nomad` starts and elects a
+ leader. Without the cgroups fix in this branch it fails at startup with
+ `failed to detect memset`, because the image layers a cgroup2 mount over the
+ v1 hierarchy.
+- `raw_exec` fingerprints healthy and the node registers without `docker`.
+- A `raw_exec` allocation reaches `running`, with the same
+ `agent -> executor -> service` process tree as on arm64.
+- `nomad job stop` reaps both the executor and the service.
+- With the fix the client reports cgroups v2 and creates
+ `/sys/fs/cgroup/nomad.slice`. `cgroup.controllers` is empty on this image,
+ so resource limits are still not enforced.
+
 
 ## Known limitations
 
