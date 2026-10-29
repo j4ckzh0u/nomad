@@ -31,9 +31,30 @@ For boot persistence install the init service:
 adb root && adb remount
 adb push pkg/android_arm64/nomad.so /system/bin/nomad
 adb shell chmod 755 /system/bin/nomad
+adb shell mkdir -p /data/local/nomad /data/local/services
+adb push demo/android/android.hcl /data/local/nomad/android.hcl
 adb push demo/android/nomad.rc /system/etc/init/nomad.rc
+adb shell chmod 644 /system/etc/init/nomad.rc
 adb reboot
 ```
+
+Verify with:
+
+```sh
+adb shell getprop init.svc.nomad # running
+adb shell 'ps -A -o PID,PPID,NAME | grep nomad' # pid, ppid 1
+```
+
+Two things init does not report clearly, both found by rebooting and reading
+`dmesg`:
+
+- The service must declare a `seclabel`. Without one, init parses the file and
+ evaluates its actions, then logs `service nomad does not have a SELinux
+ domain defined` and never starts anything. `u:r:su:s0` is the permissive
+ domain available on userdebug builds; a production device needs its own.
+- `on init` actions run in file order, so the `mkdir` block has to come before
+ the service, and the mode is plain octal (`777`), not `0777`.
+
 
 ## 2. Production device, enforcing SELinux, no root
 
