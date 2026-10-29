@@ -64,19 +64,32 @@ alive_any() {
 }
 
 running_pid() {
- FOUND=""
- if [ -f "$PIDFILE" ]; then
- for P in $(cat "$PIDFILE"); do
- if alive "$P"; then
- FOUND="$FOUND $P"
- fi
- done
- fi
- echo $FOUND
- if [ -n "$FOUND" ]; then
- return 0
- fi
- return 1
+	FOUND=""
+	if [ -f "$PIDFILE" ]; then
+		for P in $(cat "$PIDFILE"); do
+			if alive "$P"; then
+				FOUND="$FOUND $P"
+			fi
+		done
+	fi
+	# The pidfile can be lost (a stop that was interrupted, a wiped data dir)
+	# or point at pids that init has since reaped. Fall back to matching the
+	# binary name so status and stop still work.
+	if [ -z "$FOUND" ]; then
+		BIN=$(resolve_bin 2>/dev/null) || BIN=""
+		if [ -n "$BIN" ]; then
+			BASE=$(basename "$BIN")
+			for P in $(find_pids "$BASE"); do
+				FOUND="$FOUND $P"
+			done
+		fi
+	fi
+	FOUND=$(echo $FOUND)
+	echo $FOUND
+	if [ -n "$FOUND" ]; then
+		return 0
+	fi
+	return 1
 }
 
 # find_pid prints the pid of the first process whose executable basename
@@ -155,32 +168,69 @@ start_agent() {
 	echo "started pid $(echo $ALL | tr ' ' ',') using $BIN"
 }
 
+# http_get / http_delete talk to the local agent. Android images usually have
+# neither curl nor wget on PATH, but busybox provides wget.
+http_get() {
+ if command -v curl >/dev/null 2>&1; then
+ curl -s "$1"
+ elif command -v busybox >/dev/null 2>&1; then
+ busybox wget -q -O - "$1"
+ else
+ return 1
+ fi
+}
+
+http_delete() {
+ # busybox wget has no --method, so issue a raw request with nc instead.
+ # Usage: http_delete <port> <path>
+ if command -v curl >/dev/null 2>&1; then
+ curl -s -X DELETE "http://127.0.0.1:$1$2"
+ return
+ fi
+ if command -v busybox >/dev/null 2>&1; then
+ printf 'DELETE %s HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n' "$2" |
+ busybox nc 127.0.0.1 "$1"
+ return
+ fi
+ return 1
+}
+
 stop_agent() {
- TARGETS=$(running_pid)
- if [ -z "$TARGETS" ]; then
+ P=$(running_pid)
+ if [ -z "$P" ]; then
  echo "not running"
  rm -f "$PIDFILE"
  return 0
  fi
- # Stop every pid in the recorded set; a crashed agent can leave the executor
- # behind, and both must be signalled for the mount cleanup to succeed.
- for P in $TARGETS; do
- kill -TERM "$P" 2>/dev/null
+
+ # The agent deliberately leaves tasks running when it receives SIGTERM, so a
+ # client restart does not interrupt them (see allocRunner.Shutdown, "Tasks
+ # are unaffected and may be restored"). Bringing the workload down is a
+ # separate step that only the API can do, because the launcher has no way to
+ # know which user binaries are running.
+ jobs=$(http_get "http://127.0.0.1:4646/v1/jobs" 2>/dev/null |
+ sed -n 's/.*"ID":"\([^"]*\)".*/\1/p')
+ for JOB in $jobs; do
+ echo "stopping job $JOB"
+ http_delete 4646 "/v1/job/$JOB?purge=false" >/dev/null 2>&1
  done
+ if [ -n "$jobs" ]; then
+ sleep 2
+ fi
+
+ kill -TERM "$P" 2>/dev/null
  i=0
  while [ "$i" -lt 30 ]; do
- if ! alive_any "$TARGETS"; then
+ if ! alive "$P"; then
  break
  fi
  sleep 1
  i=$((i +1))
  done
- for P in $TARGETS; do
  if alive "$P"; then
  echo "pid $P still running after 30s, sending KILL"
  kill -KILL "$P" 2>/dev/null
  fi
- done
  rm -f "$PIDFILE"
  echo "stopped"
 }
