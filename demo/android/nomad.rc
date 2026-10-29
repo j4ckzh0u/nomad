@@ -1,0 +1,40 @@
+# Android init service definition for the Nomad agent.
+#
+# Install on a device with a writable /system (root or custom ROM):
+#
+# adb root
+# adb remount
+# adb push nomad.rc /system/etc/init/nomad.rc
+# adb push nomad /system/bin/nomad && adb shell chmod 755 /system/bin/nomad
+# adb shell mkdir -p /data/local/nomad && adb push android.hcl /data/local/nomad/android.hcl
+# adb reboot
+#
+# Verify with: adb shell 'getprop | grep nomad' and `logcat -s nomad`.
+#
+# Notes:
+# - /system/bin/nomad is used because Android refuses to exec binaries from
+# app-private storage under /data on API29+. init on older releases would
+# allow /data/local/tmp, but /system/bin is the portable choice.
+# - The service runs as root because raw_exec launches arbitrary binaries and
+# because the agent mounts tmpfs for task secrets.
+# - `oneshot` is deliberately NOT set: with a normal service init restarts the
+# agent if it dies, which is what you want for a supervisor.
+
+service nomad /system/bin/nomad agent -config=/data/local/nomad/android.hcl
+ class late_start
+ user root
+ group root system
+ # Raw_exec needs to see and signal arbitrary processes.
+ seclabel u:r:su:s0
+ # Restart the agent if it exits, but back off so a bad config does not
+ # spin.
+ oneshot disabled
+
+on property:sys.boot_completed=1
+ start nomad
+
+# Nomad keeps its Raft/memdb state and alloc dirs under data_dir. Ensure the
+# directory exists with the right ownership before the agent starts.
+on init
+ mkdir /data/local/nomad 0755 root root
+ mkdir /data/local/services 0755 root root
