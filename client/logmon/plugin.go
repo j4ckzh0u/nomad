@@ -5,24 +5,23 @@ package logmon
 
 import (
 	"context"
-	"os"
 	"os/exec"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
 	"github.com/hashicorp/nomad/client/logmon/proto"
+	"github.com/hashicorp/nomad/helper/subproc"
 	"github.com/hashicorp/nomad/plugins/base"
 	"google.golang.org/grpc"
 )
 
 var bin = getBin()
 
+// getBin resolves the path used to re-execute this binary as logmon. It goes
+// through subproc so Android can supply an executable path when the running
+// image itself is not executable (see subproc.SetExecutableOverride).
 func getBin() string {
-	b, err := os.Executable()
-	if err != nil {
-		panic(err)
-	}
-	return b
+	return subproc.Self()
 }
 
 // LaunchLogMon launches a new logmon or reattaches to an existing one.

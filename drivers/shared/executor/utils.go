@@ -6,7 +6,6 @@ package executor
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"os/exec"
 
 	"github.com/golang/protobuf/ptypes"
@@ -14,6 +13,7 @@ import (
 	plugin "github.com/hashicorp/go-plugin"
 	"github.com/hashicorp/nomad/client/lib/cpustats"
 	"github.com/hashicorp/nomad/drivers/shared/executor/proto"
+	"github.com/hashicorp/nomad/helper/subproc"
 	"github.com/hashicorp/nomad/nomad/structs"
 	"github.com/hashicorp/nomad/plugins/base"
 )
@@ -40,10 +40,10 @@ func CreateExecutor(
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to create executor config: %v", err)
 	}
-	bin, err := os.Executable()
-	if err != nil {
-		return nil, nil, fmt.Errorf("unable to find the nomad binary: %v", err)
-	}
+	// subproc resolves the path used to re-execute this binary. On Android the
+	// running image is not always executable, so an explicit override or a
+	// fallback location may be used instead.
+	bin := subproc.Self()
 
 	p := &ExecutorPlugin{
 		logger:      logger,

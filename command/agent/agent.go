@@ -35,6 +35,7 @@ import (
 	"github.com/hashicorp/nomad/helper/bufconndialer"
 	"github.com/hashicorp/nomad/helper/escapingfs"
 	"github.com/hashicorp/nomad/helper/pluginutils/loader"
+	"github.com/hashicorp/nomad/helper/subproc"
 	"github.com/hashicorp/nomad/helper/uuid"
 	"github.com/hashicorp/nomad/nomad"
 	"github.com/hashicorp/nomad/nomad/deploymentwatcher"
@@ -161,6 +162,21 @@ func NewAgent(config *Config, logger log.InterceptLogger, logOutput io.Writer, i
 
 	// Global logger should match internal logger as much as possible
 	golog.SetFlags(golog.LstdFlags | golog.Lmicroseconds)
+
+	// Resolve the path used to re-execute this binary before anything can spawn
+	// a helper process. On Android the running image is frequently not
+	// executable (see subproc.SetExecutableOverride), so an explicit path from
+	// the config or environment is applied here, once, with a warning when the
+	// result differs from the running image.
+	if config.ExecutablePath != "" {
+		subproc.SetExecutableOverride(config.ExecutablePath)
+	}
+	if self, err := os.Executable(); err == nil {
+		if resolved := subproc.Self(); resolved != self {
+			a.logger.Warn("helpers will re-execute a different binary",
+				"running_image", self, "helper_binary", resolved)
+		}
+	}
 
 	if err := a.setupConsuls(config.Consuls); err != nil {
 		return nil, fmt.Errorf("Failed to initialize Consul client: %v", err)
