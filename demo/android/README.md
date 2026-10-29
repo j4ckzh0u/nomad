@@ -32,6 +32,18 @@ For an enforcing device without root, read `DEPLOYMENT.md` first: the binary
 has to be packaged into the APK and `executable_path` (or `NOMAD_EXECUTABLE`)
 has to be set.
 
+## Stopping
+
+`nomad-android.sh stop` deregisters every job through the agent API and then
+signals the agent. Both steps are required: on SIGTERM the client
+deliberately leaves allocations running so a restart does not interrupt them
+(`allocRunner.Shutdown`), and the executors are reparented to init. Signalling
+the agent alone would leave the workload running with nothing tracking it.
+
+Because the launcher talks to the API, it needs reachability on
+`127.0.0.1:4646`. It uses `curl` when present, and falls back to
+`busybox nc` or `wget`, which is what Android images usually ship.
+
 ## Things that differ from Linux
 
 - `raw_exec` must be enabled in the client `options` block. It ships disabled.
