@@ -7,6 +7,8 @@ without Docker and without a container runtime.
 Everything here was verified on real hardware. Where something is a platform
 limitation rather than a bug, it says so.
 
+>中文版：[../README.zh-CN.md](../README.zh-CN.md)、[zh-CN/](zh-CN/README.md)
+
 ## What this fork changes
 
 | Area | Change |
