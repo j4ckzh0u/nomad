@@ -70,18 +70,39 @@ func functionalCgroups2(controllersFile string) bool {
 	return rootSubtreeControllers.ContainsSlice(requiredCgroup2Controllers)
 }
 
+// scan determines which cgroups version is mounted at /sys/fs/cgroup.
+//
+// It must not return on the first matching line. Android and container images
+// commonly layer several mounts on the same mountpoint: the outer entry is a
+// tmpfs (with cgroup v1 controllers mounted beneath it) and a cgroup2 entry is
+// bind mounted over the top. Only the last entry for the mountpoint is the
+// one actually visible, so keep scanning and let later lines win.
+//
+// A tmpfs at /sys/fs/cgroup with no cgroup2 above it still means cgroups v1,
+// because that is how the v1 hierarchy is exposed.
 func scan(in io.Reader) Mode {
+	var mode Mode = OFF
 	scanner := bufio.NewScanner(in)
 	for scanner.Scan() {
 		tokens := set.From(strings.Fields(scanner.Text()))
-		if tokens.Contains("/sys/fs/cgroup") {
-			if tokens.Contains("tmpfs") {
-				return CG1
+		if !tokens.Contains("/sys/fs/cgroup") {
+			continue
+		}
+		switch {
+		case tokens.Contains("cgroup2"):
+			mode = CG2
+		case tokens.Contains("tmpfs"):
+			// Only downgrade to v1 if no cgroup2 has been seen; a later
+			// tmpfs cannot hide an earlier cgroup2 mount in practice.
+			if mode != CG2 {
+				mode = CG1
 			}
-			if tokens.Contains("cgroup2") {
-				return CG2
+		case tokens.Contains("cgroup"):
+			// A v1 controller mount ("cgroup cgroup rw,cpuset") at this path.
+			if mode == OFF {
+				mode = CG1
 			}
 		}
 	}
-	return OFF
+	return mode
 }
