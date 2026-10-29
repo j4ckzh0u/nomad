@@ -1,41 +1,46 @@
-# Nomad on Android: example configuration
+# Nomad on Android
 
-Minimal single-node configuration used to validate the Android port. See
-`contributing/android.md` for the full background.
+Configuration, launcher and example jobs for running the Nomad client on an
+Android device with the `raw_exec` driver. Background and the list of code
+changes are in `contributing/android.md`.
 
-## Layout on the device
+## Files
 
-```
-/system/bin/nomad or /data/local/tmp/nomad # the binary (see docs for caveats)
-/data/local/nomad/android.hcl # this config
-/data/local/nomad/data/ # data_dir
-/data/local/services/ # host volume for your binaries
-```
+| File | Purpose |
+| --- | --- |
+| `android.hcl` | Single-node agent config: server + client, `raw_exec` only |
+| `example.nomad` | One long-running `raw_exec` task |
+| `stack.nomad` | Two instances with a rolling update, host volume, restart policy |
+| `nomad-android.sh` | `start` / `stop` / `restart` / `status` launcher |
+| `nomad.rc` | Android init service definition for boot persistence |
+| `DEPLOYMENT.md` | The three deployment shapes and which one you are in |
 
-## Start the agent
+## Quick start (rooted board)
 
 ```sh
 adb push pkg/android_arm64/nomad.so /data/local/tmp/nomad
-adb shell chmod +x /data/local/tmp/nomad
-adb push demo/android/android.hcl /data/local/nomad/android.hcl
-adb shell 'setsid /data/local/tmp/nomad agent -config=/data/local/nomad/android.hcl'
+adb shell chmod 755 /data/local/tmp/nomad
+adb shell mkdir -p /data/local/nomad /data/local/services
+adb push android.hcl /data/local/nomad/android.hcl
+adb push nomad-android.sh /data/local/nomad/
+adb shell sh /data/local/nomad/nomad-android.sh start
 adb forward tcp:4646 tcp:4646
+nomad job run example.nomad
 ```
 
-`setsid` detaches the agent from the adb shell session so it survives the
-shell exiting. Without it the agent receives SIGHUP when the shell is closed.
+For an enforcing device without root, read `DEPLOYMENT.md` first: the binary
+has to be packaged into the APK and `executable_path` (or `NOMAD_EXECUTABLE`)
+has to be set.
 
-## Submit a job
+## Things that differ from Linux
 
-```sh
-nomad job run demo/android/example.nomad
-nomad job status android-example
-```
-
-## Notes
-
-- `raw_exec` must be enabled explicitly in the client `options` block.
-- Job specs should set `logs { disabled = true }`: log collection spawns the
- `logmon` re-exec helper, and on Android it is simpler to log to logcat.
-- The agent does not survive a reboot on its own. Use an init script, a
- foreground service, or your device's own boot hook to start it.
+- `raw_exec` must be enabled in the client `options` block. It ships disabled.
+- Set `logs { disabled = true }` in job specs. Log collection re-executes the
+ nomad binary as `logmon`, and on Android it is safer to log to logcat from
+ the application.
+- CPU and memory in `resources` are used for scheduling but are **not
+ enforced**: there is no usable cgroup controller for `raw_exec`.
+- Use `network { mode = "host" }`. Bridge networking needs CNI, which is not
+ available.
+- The agent does not install a boot hook by itself. Use `nomad.rc` on a
+ writable system partition, or your device's own boot mechanism.
