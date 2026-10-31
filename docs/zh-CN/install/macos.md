@@ -1,11 +1,11 @@
-#在 macOS上安装 Nomad
+# 在 macOS上安装 Nomad
 
 macOS适合跑单节点或开发集群。它**不是**生产服务端平台：没有 cgroups、
 没有桥接网络、也没有 `exec`驱动。
 
 在 macOS 14和15、两种架构上都验证过。
 
-##环境要求
+## 环境要求
 
 |项目 |原因 |
 | --- | --- |
@@ -13,7 +13,7 @@ macOS适合跑单节点或开发集群。它**不是**生产服务端平台：�
 |与 CPU匹配的压缩包 | Apple Silicon选 `darwin_arm64`，Intel选 `darwin_amd64` |
 |管理员权限 |仅用于安装到 `/usr/local/bin` |
 
-##安装
+## 安装
 
 ```sh
 VERSION=2.1.1
@@ -25,7 +25,7 @@ sudo install -m 0755 "nomad_${VERSION}_darwin_${ARCH}" /usr/local/bin/nomad
 nomad version
 ```
 
-###Gatekeeper
+### Gatekeeper
 
 压缩包未签名、未公证，从网上下载的二进制会被打上隔离标记，macOS拒绝执行：
 
@@ -47,7 +47,7 @@ xattr -d com.apple.quarantine /usr/local/bin/nomad
 go build -o nomad .
 ```
 
-##配置
+## 配置
 
 单节点，`~/.config/nomad/nomad.hcl`：
 
@@ -75,7 +75,7 @@ client {
 默认数据目录位于 agent的工作目录之下。**请显式设置 `data_dir`**，
 否则状态文件会落到你之后找不到的地方。
 
-##运行
+## 运行
 
 前台运行，测试够用：
 
@@ -92,7 +92,7 @@ nomad agent -dev
 `-dev`会自建数据目录、在单进程内跑一个服务端和一个客户端，退出即销毁状态。
 试跑任务用这个最快。
 
-###开机登录时启动（launchd）
+### 开机登录时启动（launchd）
 
 `~/Library/LaunchAgents/io.nomad.agent.plist`：
 
@@ -137,7 +137,7 @@ launchctl list | grep nomad
 
 停止加载：`launchctl unload ~/Library/LaunchAgents/io.nomad.agent.plist`。
 
-##验证
+## 验证
 
 ```sh
 nomad server members
@@ -148,7 +148,7 @@ nomad node status -self
 驱动列表里会出现 `raw_exec`；装了 QEMU还有 `qemu`。只有能连上 Docker守护进程
 （Docker Desktop或 Colima在跑）时才会出现 `docker`。
 
-##第一个任务
+## 第一个任务
 
 ```sh
 cat > /tmp/hello.nomad <<'EOF'
@@ -174,7 +174,7 @@ nomad job status hello
 
 更多示例见 [../examples/README.md](../examples/README.md)。
 
-##防火墙与可达性
+## 防火墙与可达性
 
 macOS默认不开防火墙。若你打开了，需要放行该二进制或对应端口，
 否则连接会被静默丢弃。
@@ -185,7 +185,7 @@ macOS默认不开防火墙。若你打开了，需要放行该二进制或对应
 |4647 | TCP | RPC |
 |4648 | TCP/UDP | Serf gossip |
 
-##这里跑不了的功能
+## 这里跑不了的功能
 
 |功能 |状态 |
 | --- | --- |
@@ -198,7 +198,7 @@ macOS默认不开防火墙。若你打开了，需要放行该二进制或对应
 实际有用的是 `raw_exec`和 `qemu`。Docker在有守护进程时可用，
 受 Docker Desktop的路径共享规则限制。
 
-##卸载
+## 卸载
 
 ```sh
 launchctl unload ~/Library/LaunchAgents/io.nomad.agent.plist
@@ -206,10 +206,10 @@ sudo rm /usr/local/bin/nomad
 rm -rf /usr/local/var/nomad ~/.config/nomad
 ```
 
-##容易踩的坑
+## 容易踩的坑
 
--未签名的二进制第一次运行是被 Gatekeeper弹窗拦住，shell里看不到错误。
+- 未签名的二进制第一次运行是被 Gatekeeper弹窗拦住，shell里看不到错误。
 先查 `xattr -l`，不要以为二进制坏了。
--Apple Silicon上直接跑 `darwin_amd64`会报 `Bad CPU type in executable`，
+- Apple Silicon上直接跑 `darwin_amd64`会报 `Bad CPU type in executable`，
 这意味着下错了压缩包；除非装了 Rosetta。
 - `-dev`只监听 localhost。要从远程访问必须显式设置 `bind_addr`。

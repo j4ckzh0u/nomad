@@ -18,19 +18,19 @@ Nomad本身是一个简单而灵活的工作负载编排器，可以部署和管
 上游官方支持 Linux、Windows和 macOS。本分支在此之外增加 Android，
 并在真实设备上验证过。
 
-##这个分支解决的核心问题
+## 这个分支解决的核心问题
 
 Nomad**不是**直接 fork你的程序。它为了启动每个任务的执行器（executor）
 和日志收集器（logmon），**必须重新执行自己的二进制**。而 Android上：
 
 - `/etc/passwd`不存在，uid来自 bionic的 `AID_*`表，按用户名解析必然失败；
--运行中的二进制常常**无法再次执行**（例如从 APK内映射出来的镜像）。
+- 运行中的二进制常常**无法再次执行**（例如从 APK内映射出来的镜像）。
 
 两件事任何一件处理不好，**所有任务都会失败**，而且报错信息极其误导人。
 本分支的处理方式是：用户查不到就降级而不是中止；并提供
 `executable_path` / `NOMAD_EXECUTABLE`让辅助进程指向一份可执行的副本。
 
-##下载
+## 下载
 
 每个版本发布7个产物，请按**将要运行 Nomad的机器**选择：
 
@@ -46,7 +46,7 @@ Android产物带 `.so`后缀，因为这是 Android允许从 APK内执行的唯�
 
 发布页面：<https://github.com/j4ckzh0u/nomad/releases>
 
-##文档
+## 文档
 
 |内容 |中文 |英文 |
 | --- | --- | --- |
@@ -62,7 +62,7 @@ Android产物带 `.so`后缀，因为这是 Android允许从 APK内执行的唯�
 **遇到 Android上的问题，请先读故障排查那一页。**里面记录了 11个真机问题，
 每条都有原始报错、根因和解决办法，其中多条报错信息本身在误导人。
 
-##快速自检
+## 快速自检
 
 ```sh
 ./docs/smoke-test.sh /path/to/nomad
@@ -79,7 +79,7 @@ nomad agent -dev &
 nomad node status
 ```
 
-##Android能力边界
+## Android能力边界
 
 |功能 |状态 |
 | --- | --- |
@@ -90,7 +90,7 @@ nomad node status
 | cgroup资源限制 |实际不生效，数值仅参与调度决策 |
 |任务日志收集 |能用但脆弱，建议 `logs { disabled = true }` |
 
-##构建
+## 构建
 
 Linux、macOS、Windows和 Android(arm64)都是纯 Go构建：
 
@@ -111,15 +111,15 @@ NOMAD_NO_UI=1 make pkg/android_amd64/nomad \
 受该标签保护且引用了 `go.mod`中不存在的 `github.com/hashicorp/go-set`，
 任何带此标签的构建都会失败。发布工作流因此按目标覆盖 `GO_TAGS`。
 
-##上游资料
+## 上游资料
 
 * [Nomad文档](https://developer.hashicorp.com/nomad/docs)
 * [CLI文档](https://developer.hashicorp.com/nomad/commands)
 * [API文档](https://developer.hashicorp.com/nomad/api-docs)
 * [插件文档](https://developer.hashicorp.com/nomad/plugins)
 * [教程](https://developer.hashicorp.com/nomad/tutorials)
-*论坛：[Discuss](https://discuss.hashicorp.com/c/nomad)
+* 论坛：[Discuss](https://discuss.hashicorp.com/c/nomad)
 
-##许可
+## 许可
 
 与上游一致，Business Source License 1.1（BUSL-1.1），详见 [LICENSE](LICENSE)。

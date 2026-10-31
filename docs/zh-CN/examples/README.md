@@ -1,4 +1,4 @@
-#示例
+# 示例
 
 每个示例都是完整的 job文件，全部在真机上跑过，并标注了适用平台。
 
@@ -10,7 +10,7 @@
 | [../../examples/android-service.nomad](../../examples/android-service.nomad) | service | Android |重启策略与长期运行任务 |
 | [../../../demo/android/job-9801.nomad](../../../demo/android/job-9801.nomad) | service | Android |两个 HTTP服务，端口9801和9802 |
 
-##跑一个
+## 跑一个
 
 ```sh
 nomad job run docs/examples/hello-unix.nomad
@@ -31,7 +31,7 @@ nomad alloc logs <分配ID> t
 nomad job allocs hello-unix -t '{{range .}}{{.ID}} {{.ClientStatus}}{{println}}{{end}}'
 ```
 
-##双服务测试
+## 双服务测试
 
 这是 Android上最有用的冒烟测试，因为它同时验证了两件事：
 两个实例被**独立放置**，且两个都能访问。
@@ -55,7 +55,7 @@ curl http://<设备IP>:9802/ # svc-b
 nomad job status
 ```
 
-##自己写一个
+## 自己写一个
 
 最小可用的 service job：
 
@@ -92,6 +92,6 @@ job "myapp" {
 这正是 Android上需要的（那里没有容器运行时），但也意味着
 **job文件属于受信输入**：能提交 job的人，就能以 agent的权限运行任何东西。
 
-如果目标是 shell脚本，请用解释器当命令、把脚本作为参数传入。
-直接把 `command`设成脚本路径，即使路径正确也可能报 "could not be found"，
-见 [../troubleshooting.md](../troubleshooting.md#把-command指向脚本会失败)。
+如果目标是 shell脚本，建议用解释器当命令、把脚本作为参数传入：这样不依赖
+执行位，脚本缺失时由 shell 报错，更清楚。见
+[../troubleshooting.md](../troubleshooting.md#把-command指向脚本会失败)。

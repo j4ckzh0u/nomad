@@ -73,10 +73,12 @@ The existing `register.go` (`!cgo`) and `register_cgo.go` (`cgo`) gained a
 
 ### `client/allocdir/stale_linux.go`
 
-Adds `unmountStaleSecretDirs`, called once per agent process from
-`AllocDir.Build`. It unmounts and recreates any `secrets/` and `private/`
-tmpfs left over from a previous process that did not shut down cleanly, so
-repeated hard restarts do not accumulate leaked mounts.
+Adds `UnmountStaleSecretDirs`, called from `Client.restoreState` before any
+allocation is restored. It unmounts the `secrets/` and `private/` tmpfs left
+over by allocations this client no longer owns, so repeated hard restarts do
+not accumulate leaked mounts. Every allocation in client state is in the keep
+set, which is what makes the sweep safe: a mount can belong to a task that is
+still running from a previous agent process.
 
 ### `client/lib/cgroupslib/mount.go`
 
@@ -276,11 +278,10 @@ running as root:
  the job spec are not enforced.
 - **No CSI, no Consul Connect, no Vault** in the tested configuration. These
  depend on infrastructure that is not present on a bare device.
-- **Unclean shutdown leaves tmpfs mounts until the next allocation.** If the
- agent is killed with `SIGKILL`, the `secrets/` and `private/` tmpfs mounts
- inside alloc directories stay behind. The agent sweeps and unmounts them once
- per process before the first allocation is built, so they are reclaimed as
- soon as scheduling resumes, but they do survive until then. Prefer `SIGTERM`
- and let the client drain.
+- **Unclean shutdown leaves tmpfs mounts until the next start.** If the agent
+ is killed with `SIGKILL`, the `secrets/` and `private/` tmpfs mounts inside
+ alloc directories stay behind. They are unmounted at the next client start,
+ before any allocation is restored, so they survive until then. Prefer
+ `SIGTERM` and let the client drain.
 - **`codegen_generated` tag** does not build in this repository state; the
  Android make target therefore overrides `GO_TAGS` instead of appending.

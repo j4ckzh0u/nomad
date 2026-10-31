@@ -1,4 +1,4 @@
-#在 Android上安装 Nomad
+# 在 Android上安装 Nomad
 
 Nomad在 Android上作为普通二进制运行。绝大多数 Android设备没有 Docker、
 也无法运行 Docker，所以本分支的重点是 `raw_exec`驱动：它直接启动二进制并托管。
@@ -13,7 +13,7 @@ Android与 Linux有两处关键差异，**任何一处忽略都会导致完全�
 
 请先读与你的设备对应的那一节。
 
-##你属于哪种形态
+## 你属于哪种形态
 
 ```mermaid
 flowchart TD
@@ -33,11 +33,11 @@ adb shell 'echo test > /data/local/tmp/x && chmod 755 /data/local/tmp/x && /data
 
 最后一条如果能打印 `test`，说明 `/data/local/tmp`可执行，适用形态1。
 
-##形态1：有 root的开发板或工程机
+## 形态1：有 root的开发板或工程机
 
 在 Rockchip RK3399（Android 8.1）和 redroid（Android 12）镜像上验证过。
 
-###安装
+### 安装
 
 ```sh
 VERSION=2.1.1
@@ -50,7 +50,7 @@ adb shell /data/local/tmp/nomad version
 
 `.so`只是打包形式。执行过 `chmod 755`之后它就是普通可执行文件。
 
-###配置
+### 配置
 
 `/data/local/nomad/android.hcl`：
 
@@ -80,7 +80,7 @@ adb shell mkdir -p /data/local/nomad/data
 adb push android.hcl /data/local/nomad/android.hcl
 ```
 
-###启动
+### 启动
 
 仓库里的启动脚本负责脱离终端和 pid跟踪：
 
@@ -101,7 +101,7 @@ adb shell 'setsid /data/local/tmp/nomad agent -config=/data/local/nomad/android.
 
 `setsid`让进程脱离 adb会话，交给 init接管，否则 adb一断 agent就死。
 
-###访问 API
+### 访问 API
 
 ```sh
 adb forward tcp:4646 tcp:4646
@@ -114,7 +114,7 @@ nomad node status
 nomad node status -address http://192.168.8.191:4646
 ```
 
-###开机自启
+### 开机自启
 
 `/system/etc/init/nomad.rc`，需要可写的 `/system`：
 
@@ -137,7 +137,7 @@ adb shell 'ps -A -o PID,PPID,NAME | grep nomad' # ppid为1
 那个文件里有两处细节是**缺一不可**的，原因见
 [../troubleshooting.md](../troubleshooting.md#init从不启动服务)。
 
-##形态2：APK，无 root
+## 形态2：APK，无 root
 
 适用于 `/system`不可修改的设备。agent以应用 uid运行，处在应用沙箱内。
 
@@ -160,7 +160,7 @@ adb shell chmod 777 /data/local/tmp/nd /data/local/tmp/alloc_mounts
 为什么需要 `TMPDIR`等完整说明见
 [../../../demo/android/apk/README.md](../../../demo/android/apk/README.md)。
 
-##验证任务能跑
+## 验证任务能跑
 
 ```sh
 nomad job run demo/android/job-9801.nomad
@@ -188,7 +188,7 @@ adb shell 'ps -A -o PID,PPID,NAME | grep -E "nomad|nc"'
 如果只有 agent、没有 executor，说明辅助进程没起来，见
 [../troubleshooting.md](../troubleshooting.md#辅助进程起不来)。
 
-##能力边界
+## 能力边界
 
 |功能 |状态 |
 | --- | --- |
@@ -204,7 +204,7 @@ adb shell 'ps -A -o PID,PPID,NAME | grep -E "nomad|nc"'
 `resources { cpu, memory }`参与放置决策，但 Android上**不强制执行**。
 很多镜像的 `cgroup.controllers`是空的，没有地方写入限制。
 
-##设备实测记录
+## 设备实测记录
 
 |设备 |结果 |
 | --- | --- |
@@ -215,7 +215,7 @@ adb shell 'ps -A -o PID,PPID,NAME | grep -E "nomad|nc"'
 x86_64镜像是容器网络，地址是 `172.17.0.3`而不是宿主机地址，
 所以只能通过 `adb forward`进去。
 
-##卸载
+## 卸载
 
 ```sh
 adb shell 'NOMAD_CONF=/data/local/nomad/android.hcl \
@@ -236,7 +236,7 @@ adb reboot
 强制 kill之后建议检查一次挂载，遗留的 tmpfs见
 [../troubleshooting.md](../troubleshooting.md#tmpfs挂载越积越多)。
 
-##停止不等于 kill
+## 停止不等于 kill
 
 对 agent执行 `kill`**不会停止任务**。这是刻意的：客户端在收到 `SIGTERM`时
 故意不动分配，以免重启打断业务，executor会被 init接管继续跑。

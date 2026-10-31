@@ -96,6 +96,6 @@ the job file is trusted input: anyone who can submit jobs can run anything the
 agent can.
 
 For a binary that is a shell script, invoke the interpreter and pass the script
-as an argument. Setting `command` to the script itself can fail with "could not
-be found" even when the path is correct; see
+as an argument. That does not depend on the executable bit, and a missing
+script is reported by the shell instead of by the executor; see
 [../troubleshooting.md](../troubleshooting.md#command-set-to-a-script-path-fails).

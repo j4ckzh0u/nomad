@@ -17,7 +17,7 @@ limitation rather than a bug, it says so.
 | Android | `executable_path` / `NOMAD_EXECUTABLE` let helpers re-execute a real binary |
 | Android | The Docker driver is not registered; Android has no daemon |
 | Android | cgroup detection handles layered cgroup mounts |
-| All Linux | tmpfs mounts leaked by an unclean shutdown are swept |
+| All Linux | tmpfs mounts leaked by an unclean shutdown are swept at startup |
 
 Details: [contributing/android.md](../contributing/android.md).
 

@@ -1,10 +1,10 @@
-#在 Linux上安装 Nomad
+# 在 Linux上安装 Nomad
 
 在 Ubuntu 22.04/24.04、Debian 12，以及一块运行4.4内核的 Rockchip arm64开发板上
 验证过。客户端负责跑负载，服务端负责调度，一个进程可以同时是两者，本文按
 这种方式安装。
 
-##环境要求
+## 环境要求
 
 |项目 |原因 |
 | --- | --- |
@@ -16,7 +16,7 @@
 Docker驱动额外需要一个可连通的 Docker socket。其他模块都不需要，所以
 **没有 Docker的机器是受支持的配置，不是降级状态**。
 
-##安装
+## 安装
 
 ```sh
 VERSION=2.1.1
@@ -30,7 +30,7 @@ nomad version
 
 用 `install -m 0755`而不是 `cp`，可以避开 umask导致的权限差异。
 
-##准备主机
+## 准备主机
 
 ```sh
 sudo useradd --system --home /var/lib/nomad --shell /usr/sbin/nologin nomad
@@ -42,7 +42,7 @@ sudo chown nomad:nomad /var/lib/nomad
 root运行；另一种做法是 agent保持 root，在 job里用 `user = "..."`限制
 任务身份。agent非特权运行对容器类负载完全够用。
 
-##配置
+## 配置
 
 `/etc/nomad.d/nomad.hcl`：
 
@@ -80,7 +80,7 @@ client {
 }
 ```
 
-##作为服务运行
+## 作为服务运行
 
 `/etc/systemd/system/nomad.service`：
 
@@ -116,7 +116,7 @@ systemctl status nomad
 `Type=notify`依赖二进制里的 sd_notify支持。如果 Nomad已经起来了但服务状态
 一直显示 activating，把它改成 `Type=simple`。
 
-##验证
+## 验证
 
 ```sh
 nomad server members #应列出你的节点且状态为 alive
@@ -130,7 +130,7 @@ nomad node status -self #显示识别到的驱动，应包含 raw_exec
 nomad node status -verbose $(nomad node status -self -t '{{.ID}}') | grep -i raw
 ```
 
-##第一个任务
+## 第一个任务
 
 ```sh
 cat > /tmp/hello.nomad <<'EOF'
@@ -157,7 +157,7 @@ nomad alloc logs -tail <分配ID> t
 
 更多示例见 [../examples/README.md](../examples/README.md)。
 
-##防火墙
+## 防火墙
 
 |端口 |协议 |用途 |
 | --- | --- | --- |
@@ -167,7 +167,7 @@ nomad alloc logs -tail <分配ID> t
 
 4646只对需要的网段开放。**未启用 ACL时，该 API没有任何认证。**
 
-##升级
+## 升级
 
 替换二进制即可，Raft状态会保留。
 
@@ -180,7 +180,7 @@ nomad server members #确认各节点上报的版本
 
 服务端逐个升级。三节点集群可以容忍一次重启。
 
-##卸载
+## 卸载
 
 ```sh
 sudo systemctl disable --now nomad
@@ -190,10 +190,10 @@ sudo rm -rf /etc/nomad.d /var/lib/nomad
 
 删除数据目录会清空全部状态。如果还有运行中的分配，先 drain节点。
 
-##容易踩的坑
+## 容易踩的坑
 
 - `-dev`只写内存。agent退出时所有分配都会被销毁，不需要手动 `job stop`。
--节点变成 `ready`时，驱动可能还没完成指纹采集。这个窗口内提交任务会因
+- 节点变成 `ready`时，驱动可能还没完成指纹采集。这个窗口内提交任务会因
  "缺少驱动"而可行性检查失败，重提一次即可。
--给 agent发 `SIGTERM`**不会**停止分配。这是刻意设计，避免重启中断业务。
+- 给 agent发 `SIGTERM`**不会**停止分配。这是刻意设计，避免重启中断业务。
 要停负载请用 `nomad job stop`或 `nomad node drain`。

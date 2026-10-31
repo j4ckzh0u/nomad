@@ -1,13 +1,13 @@
-#故障排查
+# 故障排查
 
 本页每一条都是在真机上实际撞到的问题。每条给出**原始报错**、**根因**和**解决办法**。
 
 Android的问题放在最前面，因为它最不常见。凡是报错信息**在误导人**的地方，
 都会明确指出来。
 
-##Android
+## Android
 
-###找不到 nobody用户
+### 找不到 nobody用户
 
 ```
 failed to setup alloc: pre-run hook "alloc_dir" failed:
@@ -27,7 +27,7 @@ Nomad在准备每个分配目录时都会解析 `nobody`并把失败当作致命
 **确认方式。** `nomad job status`应该显示 `running`，而不是在
 `Task Setup`阶段 `failed`。
 
-###辅助进程起不来
+### 辅助进程起不来
 
 ```
 failed to create executor: error creating rpc client for executor plugin:
@@ -73,7 +73,7 @@ adb shell cat <data_dir>/alloc/<分配ID>/<任务名>/executor.out
 出现 `plugin init error: open /data/local/tmp/plugin 123: permission denied`
 这类内容就是原因B。如果文件存在但为空，说明进程根本没起来，是原因A。
 
-###创建任务 socket时报 `bind: invalid argument`
+### 创建任务 socket时报 `bind: invalid argument`
 
 ```
 error creating task api socket: listen unix .../secrets/api.sock: bind: invalid argument
@@ -171,8 +171,10 @@ adb shell grep -c 'nomad/data/alloc' /proc/mounts
 内核一直保留挂载到重启；之后新的 agent看到密钥目录非空（因为存在
 `.nomad-mount`标记文件）就跳过重新挂载，于是这些挂载永远不会被复用或释放。
 
-**解决。**本分支在每次分配时清扫一次：分配目录下凡不是当前正在构建的分配，
-就卸载并重建。仍然 busy的挂载会被跳过。
+**解决。**本分支在**客户端启动时**、恢复任何分配之前清扫一次。仍在客户端
+状态里的分配会保留挂载，因为那些挂载可能属于**仍在运行**的任务；其余目录
+agent已经无从触达，会被卸载。只处理仍带 `.nomad-mount`标记的目录，因此
+不会去删普通文件系统上的内容；仍然 busy的挂载会被跳过。
 
 **旧版本可手工清理：**
 
@@ -215,16 +217,35 @@ task "svc" {
 
 应用可以写 `logcat`，然后用 `adb logcat -s <TAG>`查看。
 
-###把 `command`指向脚本会失败
+### 把 `command`指向脚本会失败
 
 ```
 failed to launch command with executor: rpc error: code = Unknown desc =
 binary "/data/local/tmp/serve-9801.sh" could not be found
 ```
 
-路径存在、权限 0755、属主是 root，手工执行完全正常。
+**事后你会看到：**路径存在、权限 0755、属主是 root，手工执行完全正常。
 
-**解决。**用解释器当命令，把脚本作为参数传入：
+**根因。**启动任务时 executor看不到这个文件。`lookupBin`
+（`drivers/shared/executor/executor.go`）对绝对路径**只 stat一次**：
+不检查执行位，也与文件名无关。这条报错的含义只有一个——那一刻文件不存在。
+
+**它为什么看起来像 bug。**找不到命令属于驱动的启动错误，而驱动启动错误
+**不可恢复**：分配会停在 `Not Restarting`＋`Error was unrecoverable`，
+永远不会重试。所以事后补上脚本也救不回来；这正是"路径存在、权限正常，
+而分配仍说找不到二进制"的由来。
+
+**解决。**先推脚本，再提交 job。若分配已经这样失败过，需要重新提交
+（`nomad job stop`，再 `nomad job run`）。
+
+**排查：**
+
+```sh
+adb shell ls -l /data/local/tmp/serve-9801.sh
+adb shell cat <data_dir>/alloc/<分配ID>/<任务名>/executor.out
+```
+
+Android上更好的默认写法仍是**用解释器当命令、把脚本作为参数传入**：
 
 ```hcl
 config {
@@ -233,12 +254,11 @@ config {
 }
 ```
 
-这种形式稳定可用。直接指向脚本失败的确切根因**没有定位**；
-如果你在别的布局下也遇到，应当作 bug上报，而不是当成预期行为。
+它不依赖执行位；脚本缺失时由 shell 报错，比 executor 的报错清楚。
 
-##全平台通用
+## 全平台通用
 
-###节点是 ready但任务可行性检查失败
+### 节点是 ready但任务可行性检查失败
 
 ```
 no nodes available to place the task group
@@ -299,7 +319,7 @@ xattr -d com.apple.quarantine /usr/local/bin/nomad
 
 **解决。**对可执行文件执行一次 `Unblock-File`。
 
-##构建相关
+## 构建相关
 
 ### `no required module provides package github.com/hashicorp/go-set`
 
@@ -339,7 +359,7 @@ NOMAD_NO_UI=1 make pkg/android_amd64/nomad \
 
 arm64和 arm不需要这些，纯 Go即可。
 
-##上报新问题
+## 上报新问题
 
 请附上：
 

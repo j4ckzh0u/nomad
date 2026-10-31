@@ -1,11 +1,11 @@
-#在 Windows上安装 Nomad
+# 在 Windows上安装 Nomad
 
 Windows作为 Nomad客户端支持良好。服务端也能跑，适合搭实验环境；
 生产集群通常把服务端放在 Linux上。
 
 在 Windows 10、11和 Server 2022上验证过。
 
-##环境要求
+## 环境要求
 
 |项目 |原因 |
 | --- | --- |
@@ -16,7 +16,7 @@ Windows作为 Nomad客户端支持良好。服务端也能跑，适合搭实验�
 下面的命令必须在**管理员** PowerShell里执行。`Start-Process -Verb RunAs`
 不足以完成服务注册那一步。
 
-##安装
+## 安装
 
 ```powershell
 $Version = '2.1.1'
@@ -43,7 +43,7 @@ nomad version
 想用 zip的话：`Expand-Archive -Path .\nomad_2.1.1_windows_amd64.zip
 -DestinationPath $Dest -Force`，之后同样需要 `Unblock-File`。
 
-##配置
+## 配置
 
 `C:\ProgramData\Nomad\nomad.hcl`：
 
@@ -74,7 +74,7 @@ HCL里的路径**用正斜杠**。反斜杠多数地方能用，但路径末尾�
 New-Item -ItemType Directory -Force -Path 'C:\ProgramData\Nomad\data' | Out-Null
 ```
 
-##注册为服务
+## 注册为服务
 
 `sc.exe`系统自带，不需要额外软件：
 
@@ -100,7 +100,7 @@ Get-EventLog -LogName Application -Source Nomad -Newest 20
 & 'C:\Program Files\Nomad\nomad.exe' agent -config 'C:\ProgramData\Nomad'
 ```
 
-##防火墙
+## 防火墙
 
 ```powershell
 New-NetFirewallRule -DisplayName 'Nomad HTTP' -Direction Inbound -Protocol TCP -LocalPort 4646 -Action Allow
@@ -110,7 +110,7 @@ New-NetFirewallRule -DisplayName 'Nomad Serf' -Direction Inbound -Protocol TCP -
 
 未启用 ACL时该 API没有认证。工作站上建议绑定 `127.0.0.1`并不加防火墙规则。
 
-##验证
+## 验证
 
 ```powershell
 nomad server members
@@ -118,7 +118,7 @@ nomad node status
 nomad node status -self
 ```
 
-##第一个任务
+## 第一个任务
 
 ```powershell
 @'
@@ -146,7 +146,7 @@ nomad job status hello
 [../../examples/hello-unix.nomad](../../examples/hello-unix.nomad)。更多示例：
 [../examples/README.md](../examples/README.md)。
 
-##Windows下的能力边界
+## Windows下的能力边界
 
 |功能 |状态 |
 | --- | --- |
@@ -161,7 +161,7 @@ nomad job status hello
 job里的路径用 Windows形式；`command`应为**绝对路径**，
 `raw_exec`不会去 `%PATH%`里搜索命令本身。
 
-##卸载
+## 卸载
 
 ```powershell
 sc.exe stop Nomad
@@ -170,11 +170,11 @@ Remove-Item -Recurse -Force 'C:\Program Files\Nomad', 'C:\ProgramData\Nomad'
 Remove-NetFirewallRule -DisplayName 'Nomad *'
 ```
 
-##容易踩的坑
+## 容易踩的坑
 
 - `sc.exe`的 `binPath=`后面必须有空格，而错误信息不会提示这一点。
--用 `Invoke-WebRequest`下载的二进制首次执行会被拦截，直到运行 `Unblock-File`。
+- 用 `Invoke-WebRequest`下载的二进制首次执行会被拦截，直到运行 `Unblock-File`。
 弹窗每个文件只出现一次。
--普通 PowerShell窗口里跑 `nomad agent -dev`，关窗口即进程结束，分配全部消失。
--任务输出写在 `data_dir\alloc`下的文件里，不会进 Windows事件日志；
+- 普通 PowerShell窗口里跑 `nomad agent -dev`，关窗口即进程结束，分配全部消失。
+- 任务输出写在 `data_dir\alloc`下的文件里，不会进 Windows事件日志；
 如需进事件日志，须设 `logs { disabled = true }`并由程序自己写。

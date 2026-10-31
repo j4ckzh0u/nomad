@@ -15,8 +15,9 @@ job "android-service" {
  driver = "raw_exec"
 
  config {
- # The binary must be executable in place, or invoked through an
- # interpreter as here. See docs/troubleshooting.md.
+ # The interpreter is the command and the script is an argument, so a missing
+ # script is reported by the shell instead of by the executor. Nomad sets the
+ # executable bit on the command itself. See docs/troubleshooting.md.
  command = "/system/bin/sh"
  args = ["-c", "while true; do echo alive $(date); sleep 30; done"]
  }

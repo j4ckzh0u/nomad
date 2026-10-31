@@ -189,9 +189,12 @@ skips it, the kernel keeps the mounts until reboot, and a later agent finds a
 non-empty secrets directory (because of the `.nomad-mount` marker) and skips
 re-mounting. The mount is then never reused or released.
 
-**Fix.** This fork sweeps them once per allocation: anything under the alloc
-directory that is not the allocation being built is unmounted and recreated.
-A mount that is still busy is left alone.
+**Fix.** This fork sweeps them at client startup, before any allocation is
+restored. Allocations that are still in client state keep their mounts,
+because those mounts can belong to tasks that are still running; every other
+directory under the alloc dir is unreachable by this agent and is unmounted.
+Only directories that still hold the `.nomad-mount` marker are touched, so
+nothing on a plain filesystem is removed, and a busy mount is left alone.
 
 **Manual cleanup**, if you are on an older build:
 
@@ -242,9 +245,31 @@ failed to launch command with executor: rpc error: code = Unknown desc =
 binary "/data/local/tmp/serve-9801.sh" could not be found
 ```
 
-The path exists, is mode 0755, and is owned by root. Running it by hand works.
+**What you see afterwards.** The path exists, is mode 0755, is owned by root,
+and running it by hand works. That is what makes the error look wrong.
 
-**Fix.** Invoke the interpreter and pass the script as an argument:
+**Cause.** The executor could not see the file when it launched the task.
+`lookupBin` (`drivers/shared/executor/executor.go`) only stats an absolute
+path, so the executable bit does not matter and neither does the file name:
+this error means the file itself was not there at that moment.
+
+**Why the failed allocation never recovers.** Not being able to find the
+command is a driver start error. Driver start errors are not recoverable: the
+allocation stops at `Not Restarting` with `Error was unrecoverable` and is
+never retried, so pushing the script afterwards does not revive it.
+
+**Fix.** Push the script before submitting the job. If an allocation already
+failed this way, submit the job again (`nomad job stop`, then `nomad job run`).
+
+**Check.**
+
+```sh
+adb shell ls -l /data/local/tmp/serve-9801.sh
+adb shell cat <data_dir>/alloc/<alloc-id>/<task>/executor.out
+```
+
+Calling the interpreter and passing the script as an argument is still the
+better default on Android:
 
 ```hcl
 config {
@@ -253,9 +278,8 @@ config {
 }
 ```
 
-This form is reliable. The root cause of the direct form failing was not
-isolated; if you hit it with a different layout, treat it as a bug worth
-reporting rather than as expected behaviour.
+It does not depend on the executable bit, and a missing script is then
+reported by the shell rather than by the executor.
 
 ## All platforms
 

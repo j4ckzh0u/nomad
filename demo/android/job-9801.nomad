@@ -11,9 +11,9 @@ job "http-9801" {
  driver = "raw_exec"
 
  config {
- # The interpreter is the command and the script is an argument. Pointing
- # command at the script itself fails here with "could not be found" even
- # though the path exists and is executable.
+ # The interpreter is the command and the script is an argument: that does not
+ # depend on the executable bit, and a missing script is reported by the shell
+ # instead of by the executor. See docs/troubleshooting.md.
  command = "/system/bin/sh"
  args = ["/data/local/tmp/serve-9801.sh"]
  }

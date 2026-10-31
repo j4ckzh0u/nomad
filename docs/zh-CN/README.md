@@ -1,4 +1,4 @@
-#各平台安装与使用手册
+# 各平台安装与使用手册
 
 本仓库是 Nomad的一个分支，增加了可用的 Android目标：客户端可以跑在
 Android设备上，用 `raw_exec`驱动直接托管二进制程序，**不需要 Docker，
@@ -7,7 +7,7 @@ Android设备上，用 `raw_exec`驱动直接托管二进制程序，**不需要
 本文档中的所有内容都在真机上验证过。凡是属于平台限制而非缺陷的地方，
 都会明确说明。
 
-##本分支改了什么
+## 本分支改了什么
 
 |范围 |改动 |
 | --- | --- |
@@ -15,11 +15,11 @@ Android设备上，用 `raw_exec`驱动直接托管二进制程序，**不需要
 | Android |新增 `executable_path` / `NOMAD_EXECUTABLE`，让辅助进程能重新执行真实的二进制 |
 | Android |不再注册 Docker驱动；Android上没有守护进程可连 |
 | Android | cgroup检测支持多层挂载的镜像 |
-|全部 Linux |非正常退出遗留的 tmpfs会在下次分配时清理 |
+|全部 Linux |非正常退出遗留的 tmpfs在客户端启动时清理 |
 
 细节见 [../contributing/android.md](../../contributing/android.md)。
 
-##下载
+## 下载
 
 每个版本发布7个压缩包。请按**将要运行 Nomad的机器**选择，而不是按你
 当前打字的机器。
@@ -40,7 +40,7 @@ Android的文件带 `.so`后缀，因为这是 Android允许从 APK内执行的�
 macOS的压缩包未签名、未公证，需要执行一条命令清除隔离属性，
 见 [install/macos.md](install/macos.md)。
 
-##安装指南
+## 安装指南
 
 |平台 |指南 |说明 |
 | --- | --- | --- |
@@ -55,7 +55,7 @@ Android上绝大多数意外都记录在里面。
 
 可直接运行的示例在 [examples/](examples/README.md)。
 
-##一个任务是怎么跑起来的
+## 一个任务是怎么跑起来的
 
 Nomad并不直接 fork你的程序。客户端启动驱动，驱动启动执行器（executor），
 执行器再启动你的任务。下图每一条箭头都是一个独立进程，这一点在 Android上
@@ -80,7 +80,7 @@ executable_path = "/data/local/tmp/nomad"
 不这么做会看到什么，见
 [troubleshooting.md](troubleshooting.md#辅助进程起不来)。
 
-##快速自检
+## 快速自检
 
 任何平台，二进制就位之后：
 
