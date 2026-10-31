@@ -253,13 +253,20 @@ and running it by hand works. That is what makes the error look wrong.
 path, so the executable bit does not matter and neither does the file name:
 this error means the file itself was not there at that moment.
 
-**Why the failed allocation never recovers.** Not being able to find the
-command is a driver start error. Driver start errors are not recoverable: the
-allocation stops at `Not Restarting` with `Error was unrecoverable` and is
-never retried, so pushing the script afterwards does not revive it.
+**Why it looks wrong, and what actually happens.** The path is correct
+afterwards, the script runs by hand, and the allocation still says the binary
+could not be found. A command that cannot be found is a driver start error,
+and driver errors are not recoverable: the task goes to `Not Restarting` with
+`Error was unrecoverable`, and that allocation never starts again. Whether the
+job gets another allocation is up to its reschedule policy, and the default
+does not rescue it either: measured on a Linux client, a `batch` job went
+`dead` after its second allocation and stayed there, and a `service` job
+stopped creating allocations after five and was still `pending` four minutes
+after the script appeared.
 
 **Fix.** Push the script before submitting the job. If an allocation already
-failed this way, submit the job again (`nomad job stop`, then `nomad job run`).
+failed this way, submit the job again (`nomad job stop`, then `nomad job run`)
+rather than waiting for it to come back on its own.
 
 **Check.**
 

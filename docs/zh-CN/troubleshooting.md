@@ -230,13 +230,16 @@ binary "/data/local/tmp/serve-9801.sh" could not be found
 （`drivers/shared/executor/executor.go`）对绝对路径**只 stat一次**：
 不检查执行位，也与文件名无关。这条报错的含义只有一个——那一刻文件不存在。
 
-**它为什么看起来像 bug。**找不到命令属于驱动的启动错误，而驱动启动错误
-**不可恢复**：分配会停在 `Not Restarting`＋`Error was unrecoverable`，
-永远不会重试。所以事后补上脚本也救不回来；这正是"路径存在、权限正常，
-而分配仍说找不到二进制"的由来。
+**它为什么看起来像 bug、实际发生了什么。**事后路径是正常的，手工执行也正常，
+而分配仍然说找不到二进制。找不到命令属于驱动的启动错误，而驱动错误
+**不可恢复**：任务进入 `Not Restarting`＋`Error was unrecoverable`，
+**该分配永远不会再启动**。job能不能拿到新分配取决于重调度策略，而默认值
+同样不救场——在 Linux客户端上实测：`batch` job在第二个分配之后变成 `dead`
+并停在那里；`service` job产生 5个分配后不再新建，脚本放上去 4分钟后
+仍是 `pending`。
 
-**解决。**先推脚本，再提交 job。若分配已经这样失败过，需要重新提交
-（`nomad job stop`，再 `nomad job run`）。
+**解决。**先推脚本，再提交 job。若分配已经这样失败过，重新提交一次
+（`nomad job stop`，再 `nomad job run`），不要等它自己恢复。
 
 **排查：**
 
