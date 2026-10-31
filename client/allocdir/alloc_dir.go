@@ -390,13 +390,6 @@ func (a *AllocDir) UnmountAll() error {
 
 // Build the directory tree for an allocation.
 func (a *AllocDir) Build() error {
-	// Sweep tmpfs mounts leaked by earlier allocations that were never
-	// destroyed (an agent killed with SIGKILL, or a process that died before
-	// its destroy hook ran). The alloc being built is in the keep set, so a
-	// live allocation is never touched; anything else under the alloc dir is
-	// by definition not in use by this agent.
-	unmountStaleSecretDirs(filepath.Dir(a.AllocDir), map[string]bool{filepath.Base(a.AllocDir): true})
-
 	// Make the alloc directory, owned by the nomad process.
 	if err := os.MkdirAll(a.AllocDir, fileMode755); err != nil {
 		return fmt.Errorf("Failed to make the alloc directory %v: %w", a.AllocDir, err)

@@ -1361,6 +1361,21 @@ func (c *Client) restoreState() error {
 		c.logger.Error("error restoring alloc", "error", err, "alloc_id", allocID)
 	}
 
+	// Reclaim tmpfs mounts leaked by allocations this client is not going to
+	// restore. Allocations in state are kept: their mount may still belong to
+	// a running task, and a dead task's mount is unmounted when its alloc
+	// runner destroys the allocation.
+	keep := make(map[string]bool, len(allocs)+len(allocErrs))
+	for _, alloc := range allocs {
+		keep[alloc.ID] = true
+	}
+	for allocID := range allocErrs {
+		keep[allocID] = true
+	}
+	if n := allocdir.UnmountStaleSecretDirs(conf.AllocDir, keep); n > 0 {
+		c.logger.Info("unmounted leaked tmpfs secret mounts", "count", n)
+	}
+
 	// Load each alloc back
 	for _, alloc := range allocs {
 

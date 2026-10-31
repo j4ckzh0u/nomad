@@ -5,6 +5,6 @@
 
 package allocdir
 
-// unmountStaleSecretDirs is a no-op on platforms that do not implement the
+// UnmountStaleSecretDirs is a no-op on platforms that do not implement the
 // tmpfs backed secret directories.
-func unmountStaleSecretDirs(string, map[string]bool) {}
+func UnmountStaleSecretDirs(string, map[string]bool) int { return 0 }
