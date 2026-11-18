@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+ Copyright IBM Corp. 2015, 2026
+ SPDX-License-Identifier: MPL-2.0
+-->
 <resources>
  <string name="app_name">Nomad</string>
 </resources>

@@ -1,3 +1,6 @@
+# Copyright IBM Corp. 2015, 2026
+# SPDX-License-Identifier: MPL-2.0
+
 # Single-node Nomad agent for Android.
 #
 # Validated on an RK3399 board running Android 8.1 (API 27), arm64.

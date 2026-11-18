@@ -1,4 +1,7 @@
 #!/bin/bash
+# Copyright IBM Corp. 2015, 2026
+# SPDX-License-Identifier: MPL-2.0
+
 #
 # Build the Nomad Android wrapper APK without Gradle.
 #

@@ -1,4 +1,7 @@
 #!/system/bin/sh
+# Copyright IBM Corp. 2015, 2026
+# SPDX-License-Identifier: MPL-2.0
+
 # Minimal HTTP service for Nomad placement tests.
 #
 # Port and name are baked in because passing them on a command line

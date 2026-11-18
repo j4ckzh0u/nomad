@@ -127,11 +127,10 @@ jobs:
           path: dist
           merge-multiple: true
       - name: Package
-        env:
-          VERSION: ${{ github.event.inputs.version || github.ref_name }}
         run: |
           set -euo pipefail
-          version="${VERSION#v}"
+          version="${{ github.event.inputs.version || github.ref_name }}"
+          version="${version#v}"
           cd dist
           for f in nomad_*; do
             case "$f" in

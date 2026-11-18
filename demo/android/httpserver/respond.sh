@@ -1,4 +1,7 @@
 #!/system/bin/sh
+# Copyright IBM Corp. 2015, 2026
+# SPDX-License-Identifier: MPL-2.0
+
 # Answer one HTTP request on the socket wired to stdin/stdout.
 #
 # Run by `nc -L`, which passes no arguments, so the name comes in through the

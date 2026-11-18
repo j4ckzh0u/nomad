@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright IBM Corp. 2015, 2026
+# SPDX-License-Identifier: BUSL-1.1
+
 #
 # Smoke test: start an agent, run a job, confirm it ran, clean up.
 #
